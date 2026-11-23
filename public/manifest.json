@@ -1,0 +1,3 @@
+{ "name": "Grocerly", "short_name": "Grocerly", "start_url": "/", "display": "standalone",
+  "background_color": "#f0faf3", "theme_color": "#2f9e55",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }] }
