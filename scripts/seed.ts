@@ -1,7 +1,7 @@
 /**
  * Usage:  npm run seed -- maggi
- * Searches Open Food Facts, normalises each hit, upserts into MongoDB and computes its analysis.
- * Respects OFF's rate limits (small pages, sequential requests). Data is ODbL: keep attribution.
+ * Quick, small import for one search term (Indian products only). For large imports use
+ * `npm run import:off` and `npm run import:mendeley`.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
@@ -16,16 +16,17 @@ async function main() {
   if (!term) { console.error("Usage: npm run seed -- <search term>   e.g. npm run seed -- maggi"); process.exit(1); }
   const db = await getDb();
   await seedKnowledge(db, false);
-  console.log(`Searching Open Food Facts for "${term}" ...`);
-  const found = await searchOff(term, 24);
-  let created = 0, updated = 0;
-  for (const p of found) {
-    const { product, created: isNew } = await upsertProduct(db, p);
-    await getOrComputeAnalysis(db, product, true);
-    isNew ? created++ : updated++;
-    console.log(`${isNew ? "+ inserted" : "~ updated "}  ${p.barcode}  ${p.brand ?? ""} ${p.name}`);
+  console.log(`Searching Open Food Facts (India) for "${term}" ...`);
+  const found = await searchOff(term, 24, { india: true });
+  let created = 0, merged = 0, skipped = 0;
+  for (const { product: p, isIndian } of found) {
+    if (!isIndian) { skipped++; continue; }
+    const r = await upsertProduct(db, p, { isIndian });
+    await getOrComputeAnalysis(db, r.product, true);
+    r.created ? created++ : merged++;
+    console.log(`${r.created ? "+ inserted" : "~ merged  "}  ${p.barcode}  ${p.brand ?? ""} ${p.name}  [${p.categoryPath?.join(" > ")}]  status=${r.product.catalogStatus}`);
   }
-  console.log(`\nDone. ${created} inserted, ${updated} updated. Total products in DB: ${await col.products(db).countDocuments()}`);
+  console.log(`\nDone. ${created} inserted, ${merged} merged, ${skipped} skipped (not Indian). Products in DB: ${await col.products(db).countDocuments()}`);
   process.exit(0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

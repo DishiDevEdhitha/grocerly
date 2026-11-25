@@ -1,7 +1,9 @@
 import { ObjectId, type Db } from "mongodb";
 import { col } from "./mongodb";
 import { validateBarcode } from "./barcode";
-import { fetchOffByBarcode, searchOff } from "./off";
+import { fetchOffByBarcode } from "./off";
+import { enrichProduct, mergeProducts, prio } from "./catalogue";
+import { isSameProduct } from "./identity";
 import { BASE_KNOWLEDGE, buildIndex, classifyIngredients, detectAllergens, parseIngredientText, normalizeName, type KnowledgeIndex } from "./ingredients";
 import { computeScore } from "./score";
 import { SCORE_VERSION } from "./scoring-config";
@@ -19,9 +21,12 @@ export async function getKnowledgeIndex(db: Db): Promise<KnowledgeIndex> {
   return index;
 }
 
+let regCache: { at: number; docs: RegulationRecord[] } | null = null;
 async function getRegulations(db: Db): Promise<RegulationRecord[]> {
+  if (regCache && Date.now() - regCache.at < 5 * 60_000) return regCache.docs;
   const docs = await col.regulations(db).find({}).toArray();
-  return docs.length ? docs : (SEED_REGULATIONS as RegulationRecord[]);
+  regCache = { at: Date.now(), docs: docs.length ? docs : (SEED_REGULATIONS as RegulationRecord[]) };
+  return regCache.docs;
 }
 
 // ---- Analysis ------------------------------------------------------------------------
@@ -59,37 +64,57 @@ export async function getOrComputeAnalysis(db: Db, product: Product & { _id: Obj
 }
 
 // ---- Persistence ---------------------------------------------------------------------
-/**
- * UPSERT: insert if the barcode is new, otherwise update. `$setOnInsert` keeps createdAt stable.
- * Products without a barcode (photo-only submissions) are simply inserted.
- * A user-verified (ocr/manual) product is never overwritten by external data.
- */
-export async function upsertProduct(db: Db, p: Product): Promise<{ product: Product & { _id: ObjectId }; created: boolean }> {
+/** Find an existing record for the same product when there is no barcode match (identity rules in lib/identity.ts). */
+export async function findDuplicate(db: Db, p: Product): Promise<(Product & { _id: ObjectId }) | null> {
   const coll = col.products(db);
-  if (!p.barcode) {
+  if (p.barcode) { const hit = await coll.findOne({ barcode: p.barcode }); if (hit) return hit as Product & { _id: ObjectId }; }
+  if (!p.brandNorm || !p.productType) return null;
+  const nearby = await coll.find({ brandNorm: p.brandNorm, productType: p.productType }).limit(60).toArray();
+  return (nearby.find((x) => isSameProduct(x, p)) as (Product & { _id: ObjectId }) | undefined) ?? null;
+}
+
+/**
+ * UPSERT with source-aware merging.
+ *  - new product            -> insert
+ *  - same product exists    -> merge: the higher-priority source wins field by field,
+ *                              lower-priority data only fills gaps (it never silently overwrites)
+ * The barcode unique index plus findOneAndUpdate/upsert keeps this safe under concurrent requests.
+ */
+export async function upsertProduct(db: Db, input: Product, opts: { isIndian?: boolean } = {}): Promise<{ product: Product & { _id: ObjectId }; created: boolean; merged: boolean }> {
+  const coll = col.products(db);
+  const p = input.identityKey ? input : enrichProduct(input, { isIndian: opts.isIndian });
+  const existing = await findDuplicate(db, p);
+  if (!existing) {
     const { _id: _x, ...doc } = p;
+    if (p.barcode) {
+      const { createdAt, ...rest } = doc;
+      const res = await coll.updateOne({ barcode: p.barcode }, { $set: { ...rest, updatedAt: new Date() }, $setOnInsert: { createdAt } }, { upsert: true });
+      const saved = (await coll.findOne({ barcode: p.barcode }))!;
+      return { product: saved as Product & { _id: ObjectId }, created: res.upsertedCount > 0, merged: res.upsertedCount === 0 };
+    }
     const res = await coll.insertOne(doc as Product);
-    return { product: { ...p, _id: res.insertedId }, created: true };
+    return { product: { ...p, _id: res.insertedId }, created: true, merged: false };
   }
-  const existing = await coll.findOne({ barcode: p.barcode });
-  if (existing && existing.source.type !== "openfoodfacts" && p.source.type === "openfoodfacts") {
-    return { product: existing as Product & { _id: ObjectId }, created: false };
-  }
-  const { createdAt, _id: _y, ...rest } = p;
-  const res = await coll.updateOne(
-    { barcode: p.barcode },
-    { $set: { ...rest, updatedAt: new Date() }, $setOnInsert: { createdAt } },
-    { upsert: true },
-  );
-  const saved = (await coll.findOne({ barcode: p.barcode }))!;
-  return { product: saved as Product & { _id: ObjectId }, created: res.upsertedCount > 0 };
+  const { merged } = mergeProducts(existing, p);
+  const { _id: _z, ...doc } = merged;
+  await coll.replaceOne({ _id: existing._id }, doc as Product);
+  return { product: { ...merged, _id: existing._id }, created: false, merged: true };
 }
 
 /** Persist a product and make sure its analysis exists. */
-export async function saveProductWithAnalysis(db: Db, p: Product) {
-  const { product, created } = await upsertProduct(db, p);
+export async function saveProductWithAnalysis(db: Db, p: Product, opts: { isIndian?: boolean } = {}) {
+  const { product, created } = await upsertProduct(db, p, opts);
   const analysis = await getOrComputeAnalysis(db, product, true);
   return { product, analysis, created };
+}
+
+/** Old documents (saved before the catalogue upgrade) are upgraded the first time they are opened. */
+async function ensureV2(db: Db, p: Product & { _id: ObjectId }): Promise<Product & { _id: ObjectId }> {
+  if (p.identityKey && p.categoryPath && p.searchTokens) return p;
+  const up = enrichProduct(p, { isIndian: p.barcode?.startsWith("890") || p.source.type !== "openfoodfacts" });
+  const { _id, ...doc } = up;
+  await col.products(db).updateOne({ _id: p._id }, { $set: doc });
+  return { ...up, _id: p._id };
 }
 
 // ---- Resolution (MongoDB first, then Open Food Facts) --------------------------------
@@ -102,53 +127,25 @@ export type ResolveOutcome =
 export async function resolveProduct(db: Db, idOrBarcode: string): Promise<ResolveOutcome> {
   const coll = col.products(db);
   if (/^[a-f0-9]{24}$/i.test(idOrBarcode)) {
-    const p = await coll.findOne({ _id: new ObjectId(idOrBarcode) });
-    if (!p) return { status: "not_found", barcode: idOrBarcode, issues: ["Product not found"] };
-    return { status: "found", product: p as Product & { _id: ObjectId }, analysis: await getOrComputeAnalysis(db, p as Product & { _id: ObjectId }), origin: "mongodb" };
+    const p0 = await coll.findOne({ _id: new ObjectId(idOrBarcode) });
+    if (!p0) return { status: "not_found", barcode: idOrBarcode, issues: ["Product not found"] };
+    const p = await ensureV2(db, p0 as Product & { _id: ObjectId });
+    return { status: "found", product: p, analysis: await getOrComputeAnalysis(db, p), origin: "mongodb" };
   }
   const bc = validateBarcode(idOrBarcode);
   if (!bc.valid) return { status: "invalid_barcode", reason: bc.reason ?? "Invalid barcode" };
 
   const local = await coll.findOne({ barcode: bc.normalized }); // 1) MongoDB first
-  if (local) return { status: "found", product: local as Product & { _id: ObjectId }, analysis: await getOrComputeAnalysis(db, local as Product & { _id: ObjectId }), origin: "mongodb" };
+  if (local) { const p = await ensureV2(db, local as Product & { _id: ObjectId }); return { status: "found", product: p, analysis: await getOrComputeAnalysis(db, p), origin: "mongodb" }; }
 
   try {
     const { product, issues } = await fetchOffByBarcode(bc.normalized); // 2) Open Food Facts
     if (!product) return { status: "not_found", barcode: bc.normalized, issues };
-    const saved = await saveProductWithAnalysis(db, product); // 3) normalize -> validate -> score -> store
+    const saved = await saveProductWithAnalysis(db, product); // 3) normalize -> validate -> classify -> score -> store
     return { status: "found", product: saved.product, analysis: saved.analysis, origin: "openfoodfacts" };
   } catch (e) {
     return { status: "external_unavailable", barcode: bc.normalized, message: (e as Error).message };
   }
-}
-
-// ---- Search --------------------------------------------------------------------------
-const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-export async function searchProducts(db: Db, q: string, opts: { external?: boolean; limit?: number } = {}) {
-  const limit = opts.limit ?? 20;
-  const query = q.trim().slice(0, 80);
-  if (query.length < 2) return { results: [] as (Product & { _id: ObjectId })[], externalError: undefined as string | undefined };
-  const coll = col.products(db);
-  let results = (await coll.find({ $text: { $search: query } }, { projection: { score: { $meta: "textScore" } } }).sort({ score: { $meta: "textScore" } }).limit(limit).toArray()) as (Product & { _id: ObjectId })[];
-  if (results.length < 3) { // partial-word fallback ("mag" -> "Maggi")
-    const rx = new RegExp(escRe(query), "i");
-    const more = (await coll.find({ $or: [{ name: rx }, { brand: rx }] }).limit(limit).toArray()) as (Product & { _id: ObjectId })[];
-    const ids = new Set(results.map((r) => String(r._id)));
-    results = [...results, ...more.filter((m) => !ids.has(String(m._id)))];
-  }
-  let externalError: string | undefined;
-  if (opts.external && results.length < 5) {
-    try {
-      const found = await searchOff(query, 10);
-      for (const p of found.slice(0, 10)) {
-        const { product } = await upsertProduct(db, p);
-        await getOrComputeAnalysis(db, product);
-        if (!results.some((r) => String(r._id) === String(product._id))) results.push(product);
-      }
-    } catch (e) { externalError = (e as Error).message; }
-  }
-  return { results: results.slice(0, limit), externalError };
 }
 
 export async function recordScan(db: Db, userId: string, productId: ObjectId, method: ScanMethod) {

@@ -72,13 +72,22 @@ export const PRODUCT_VALIDATOR = {
         bsonType: "object",
         required: ["type", "confidence"],
         properties: {
-          type: { enum: ["openfoodfacts", "ocr", "manual", "ai"] },
+          type: { enum: ["openfoodfacts", "ocr", "manual", "ai", "dataset", "gemini"] },
           confidence: { bsonType: ["double", "int"], minimum: 0, maximum: 1 },
         },
       },
     },
   },
 };
+
+/** Does the EXISTING products collection accept the new source types (dataset, gemini)? */
+export async function validatorStatus(db: Db): Promise<{ ok: boolean; reason?: string }> {
+  const info = (await db.listCollections({ name: "products" }).toArray())[0] as { options?: { validator?: { $jsonSchema?: { properties?: { source?: { properties?: { type?: { enum?: string[] } } } } } } } } | undefined;
+  if (!info) return { ok: true };
+  const en = info.options?.validator?.$jsonSchema?.properties?.source?.properties?.type?.enum;
+  if (!en) return { ok: true }; // no validator at all: nothing can be rejected
+  return en.includes("dataset") && en.includes("gemini") ? { ok: true } : { ok: false, reason: "The products collection validator is from the old version and rejects the new source types. Run: npm run db:validator" };
+}
 
 /** Creates collections (with validation) and all indexes. Safe to run repeatedly. */
 export async function ensureIndexes(db: Db): Promise<void> {
@@ -98,6 +107,12 @@ export async function ensureIndexes(db: Db): Promise<void> {
     p.createIndex({ category: 1 }, { name: "category_1" }),
     p.createIndex({ profile: 1, categoryTags: 1 }, { name: "profile_categoryTags" }),
     p.createIndex({ name: "text", brand: "text", ingredientsText: "text" }, { name: "products_text", weights: { name: 10, brand: 5, ingredientsText: 1 } }),
+    // Catalogue v2: multikey indexes power category/brand/token search.
+    p.createIndex({ brandNorm: 1, catalogStatus: 1 }, { name: "brandNorm_status" }),
+    p.createIndex({ categoryPath: 1, catalogStatus: 1 }, { name: "categoryPath_status" }),
+    p.createIndex({ searchTokens: 1 }, { name: "searchTokens_1" }),
+    p.createIndex({ identityKey: 1 }, { name: "identityKey_1", sparse: true }),
+    db.collection("rate_limits").createIndex({ expireAt: 1 }, { expireAfterSeconds: 0, name: "rate_limit_ttl" }),
     col.analysis(db).createIndex({ productId: 1, scoreVersion: 1 }, { unique: true, name: "analysis_product_version" }),
     col.ingredients(db).createIndex({ normalizedName: 1 }, { unique: true, name: "ingredient_name_unique" }),
     col.ingredients(db).createIndex({ eNumber: 1 }, { sparse: true, name: "ingredient_enumber" }),

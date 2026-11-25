@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getDb } from "@/lib/mongodb";
-import { searchProducts, recordScan } from "@/lib/products";
+import { recordScan } from "@/lib/products";
+import { searchCatalogue } from "@/lib/search";
 import { extractCartItems } from "@/lib/cart";
 import { resolveProduct } from "@/lib/products";
 import { findAlternatives } from "@/lib/alternatives";
@@ -18,9 +19,9 @@ export async function POST(req: NextRequest) {
     const db = await getDb(); const userId = getUserId(req);
 
     const settled = await Promise.all(names.map(async (query) => {
-      const { results } = await searchProducts(db, query, { external: true, limit: 1 });
-      const hit = results[0]; if (!hit) return { query, matched: false as const };
-      const r = await resolveProduct(db, String(hit._id));
+      const { items } = await searchCatalogue(db, { q: query, external: true });
+      const hit = items[0]; if (!hit) return { query, matched: false as const };
+      const r = await resolveProduct(db, hit.id);
       if (r.status !== "found") return { query, matched: false as const };
       const { alternatives } = await findAlternatives(db, r.product, r.analysis, undefined, 1);
       if (userId) await recordScan(db, userId, r.product._id, "cart_screenshot");

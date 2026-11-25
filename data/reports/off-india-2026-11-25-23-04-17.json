@@ -1,0 +1,54 @@
+{
+  "read": 380,
+  "valid": 379,
+  "invalid": 1,
+  "duplicatesInFile": 0,
+  "duplicatesInDb": 50,
+  "inserted": 329,
+  "updated": 50,
+  "active": 313,
+  "needsReview": 66,
+  "hidden": 0,
+  "skippedNotIndian": 0,
+  "droppedValues": 27,
+  "reasons": {
+    "dropped_addedSugars": 14,
+    "dropped_sodium": 8,
+    "dropped_sugars": 3,
+    "no_nutrition_no_ingredients": 31,
+    "dropped_calories": 1,
+    "dropped_carbohydrates": 1,
+    "no_name": 1
+  },
+  "examples": {
+    "dropped_addedSugars": [
+      "Parle-G",
+      "Sting Energy",
+      "Good Day cashew cookie"
+    ],
+    "dropped_sodium": [
+      "bourbon",
+      "POTATO WAFERS",
+      "Jimjam 57g (57)"
+    ],
+    "dropped_sugars": [
+      "kissan fresh tomato",
+      "Hamdard Roohafza",
+      "8906002006601"
+    ],
+    "no_nutrition_no_ingredients": [
+      "Potato chips",
+      "Milk",
+      "3948764032905"
+    ],
+    "dropped_calories": [
+      "Muesli Fruit, Nut & Seeds"
+    ],
+    "dropped_carbohydrates": [
+      "Hamdard Roohafza"
+    ],
+    "no_name": [
+      "NG"
+    ]
+  }
+}

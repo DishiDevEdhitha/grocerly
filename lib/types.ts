@@ -1,7 +1,10 @@
 import type { ObjectId } from "mongodb";
 
 /** Where a piece of data came from. Used for provenance everywhere. */
-export type Provenance = "openfoodfacts" | "ocr" | "manual" | "ai";
+export type Provenance = "openfoodfacts" | "ocr" | "manual" | "ai" | "dataset" | "gemini";
+export type ConfidenceLevel = "verified" | "high" | "medium" | "low" | "unknown";
+export type CatalogStatus = "active" | "needs_review" | "hidden";
+export interface SourceEntry { source: Provenance; name?: string; confidence: number; ref?: string; url?: string; license?: string; fetchedAt: Date }
 
 /** Canonical nutrient keys. Units are fixed (see NUTRIENT_META in nutrition.ts). */
 export const NUTRIENT_KEYS = [
@@ -46,6 +49,25 @@ export interface Product {
   source: { type: Provenance; confidence: number; ref?: string; url?: string; fetchedAt: Date };
   createdAt: Date;
   updatedAt: Date;
+
+  // ---- Catalogue v2 (all optional so older documents stay valid) ----
+  brandNorm?: string;
+  nameNorm?: string;
+  productType?: string;            // leaf of categoryPath, e.g. "Processed Cheese"
+  categoryPath?: string[];         // e.g. ["Dairy", "Cheese", "Processed Cheese"]
+  identityKey?: string;
+  searchTokens?: string[];
+  catalogStatus?: CatalogStatus;   // only "active" products appear in search/alternatives
+  qualityScore?: number;           // 0..100 completeness of the record
+  servingSize?: { value: number; unit: "g" | "ml"; text?: string };
+  nutritionPerServing?: Nutrition;
+  dietary?: { vegetarian?: boolean | null; vegan?: boolean | null };
+  claims?: string[];
+  image?: string;                  // canonical front-of-pack image
+  imageSmall?: string;
+  sources?: SourceEntry[];
+  confidence?: { nutrition: ConfidenceLevel; ingredients: ConfidenceLevel; allergens: ConfidenceLevel; overall: ConfidenceLevel };
+  purchaseLinks?: { blinkit?: string; zepto?: string; bigbasket?: string };
 }
 
 export type RiskLevel = "none" | "low" | "moderate" | "high";

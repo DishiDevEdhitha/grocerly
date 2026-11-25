@@ -57,3 +57,10 @@ Camera scanning needs HTTPS. On localhost it works in desktop Chrome; on your ph
 - The score is a comparison aid based on per-100 g thresholds, not medical advice.
 
 Data: [Open Food Facts](https://world.openfoodfacts.org) (ODbL). Keep attribution if you redistribute.
+
+
+## Catalogue upgrade (v2)
+
+Grocerly now treats MongoDB as its own Indian product catalogue (Open Food Facts, a CC BY dataset and Gemini label reading only fill and enrich it): category hierarchy, product identity and duplicate merging, source-priority merging with confidence levels, intelligent search with category chips, LOW/MODERATE/HIGH nutrient levels with references, relevant comparison, Gemini label reading with camera/gallery/multi-photo/product-link input, rate limiting and import pipelines.
+
+**Read `docs/UPGRADE_GUIDE.md` (Word version: `docs/GROCERLY_UPGRADE_GUIDE.docx`).** New commands: `npm run db:validator`, `npm run migrate:v2`, `npm run import:mendeley`, `npm run import:off`, `npm run catalogue:stats`.

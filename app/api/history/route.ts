@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       { $match: { userId } }, { $sort: { scannedAt: -1 } }, { $limit: 100 },
       { $lookup: { from: "products", localField: "productId", foreignField: "_id", as: "p" } }, { $unwind: "$p" },
       { $lookup: { from: "product_analysis", localField: "productId", foreignField: "productId", as: "a" } },
-      { $project: { scannedAt: 1, method: 1, id: { $toString: "$p._id" }, name: "$p.name", brand: "$p.brand", image: "$p.images.front", score: { $arrayElemAt: ["$a.score", 0] } } },
+      { $project: { scannedAt: 1, method: 1, id: { $toString: "$p._id" }, name: "$p.name", brand: "$p.brand", image: { $ifNull: ["$p.imageSmall", "$p.images.front"] }, score: { $arrayElemAt: ["$a.score", 0] } } },
     ]).toArray();
     return ok(serialize({ items }));
   } catch (e) { return handleError(e); }

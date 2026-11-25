@@ -1,6 +1,6 @@
 import type { Product } from "./types";
 
-export type MetricKey = "score" | "price" | "quantity" | "calories" | "protein" | "carbohydrates" | "fat" | "sodium" | "sugars" | "fiber";
+export type MetricKey = "score" | "price" | "quantity" | "calories" | "protein" | "carbohydrates" | "fat" | "saturatedFat" | "sodium" | "sugars" | "fiber";
 export const METRICS: Record<MetricKey, { label: string; higherIsBetter: boolean; unit: string }> = {
   score: { label: "Grocerly score", higherIsBetter: true, unit: "pts" },
   price: { label: "Price", higherIsBetter: false, unit: "" },
@@ -9,6 +9,7 @@ export const METRICS: Record<MetricKey, { label: string; higherIsBetter: boolean
   protein: { label: "Protein", higherIsBetter: true, unit: "g" },
   carbohydrates: { label: "Carbohydrates", higherIsBetter: false, unit: "g" },
   fat: { label: "Fat", higherIsBetter: false, unit: "g" },
+  saturatedFat: { label: "Saturated fat", higherIsBetter: false, unit: "g" },
   sodium: { label: "Sodium", higherIsBetter: false, unit: "mg" },
   sugars: { label: "Sugar", higherIsBetter: false, unit: "g" },
   fiber: { label: "Fibre", higherIsBetter: true, unit: "g" },

@@ -79,7 +79,7 @@ export function fixDigits(s: string): string {
 
 const NUM_UNIT = /(\d+(?:\.\d+)?)\s*(kcal|kj|cal|mcg|µg|μg|ug|mg|kg|g)?\b/gi;
 
-function plausible(key: NutrientKey, v: number): boolean {
+export function plausible(key: NutrientKey, v: number): boolean {
   const max: Record<NutrientKey, number> = {
     calories: 900, protein: 100, carbohydrates: 100, sugars: 100, addedSugars: 100,
     fat: 100, saturatedFat: 100, transFat: 100, fiber: 100, sodium: 40000, cholesterol: 5000,
@@ -193,4 +193,16 @@ export function cleanNutrition(input: Record<string, unknown>): Nutrition {
 export function formatNutrient(key: NutrientKey, value: number | undefined): string {
   if (value == null) return "Not available";
   return `${value % 1 === 0 ? value : value.toFixed(1)} ${NUTRIENT_META[key].unit}`;
+}
+
+/** Cross-field sanity checks on a nutrition set (per 100 g). Returns human warnings and which nutrients look wrong. */
+export function crossCheck(n: Nutrition): { warnings: string[]; flagged: NutrientKey[] } {
+  const warnings: string[] = []; const flagged: NutrientKey[] = [];
+  const bad = (k: NutrientKey, msg: string) => { flagged.push(k); warnings.push(msg); };
+  for (const k of NUTRIENT_KEYS) { const v = n[k]; if (v != null && !plausible(k, v)) bad(k, `${NUTRIENT_META[k].label} value ${v} is not plausible per 100 g.`); }
+  if (n.saturatedFat != null && n.fat != null && n.saturatedFat > n.fat + 0.5) bad("saturatedFat", "Saturated fat is higher than total fat.");
+  if (n.sugars != null && n.carbohydrates != null && n.sugars > n.carbohydrates + 0.5) bad("sugars", "Sugars are higher than total carbohydrates.");
+  if (n.addedSugars != null && n.sugars != null && n.addedSugars > n.sugars + 0.5) bad("addedSugars", "Added sugars are higher than total sugars.");
+  if (n.protein != null && n.fat != null && n.carbohydrates != null && n.protein + n.fat + n.carbohydrates > 105) { warnings.push("Protein + fat + carbohydrates add up to more than 100 g per 100 g."); }
+  return { warnings, flagged: [...new Set(flagged)] };
 }

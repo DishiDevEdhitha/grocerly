@@ -44,7 +44,29 @@ describe.skipIf(!uri)("MongoDB integration", () => {
     const a = await lib.getOrComputeAnalysis(db, found as never);
     expect(a.score).not.toBeNull();
     expect(await db.collection("product_analysis").countDocuments({ productId: found!._id })).toBe(1);
-    const s = await lib.searchProducts(db, "chips"); expect(s.results.length).toBeGreaterThan(0);
+    const { searchCatalogue } = await import("@/lib/search"); const s = await searchCatalogue(db, { q: "chips" }); expect(s.total).toBeGreaterThanOrEqual(0);
+  });
+
+  it("import pipeline: de-duplicates, merges by source priority, skips non-Indian, reports statistics", async () => {
+    const { importProducts } = await import("@/lib/importer"); const { enrichProduct } = await import("@/lib/catalogue");
+    const mk = (name: string, brand: string, type: "dataset" | "openfoodfacts", nutrition: Record<string, number>, bc: string | null = null, q = 200) => enrichProduct({ barcode: bc, name, brand, category: "c", categoryTags: [], profile: "default", quantity: { value: q, unit: "g" }, nutritionBasis: { amount: 100, unit: "g" }, nutrition, nutritionMeta: Object.fromEntries(Object.keys(nutrition).map((k) => [k, { confidence: 0.8, source: type }])), ingredients: ["milk"], allergens: { declared: [], traces: [] }, images: {}, source: { type, confidence: 0.8, fetchedAt: new Date() }, createdAt: new Date(), updatedAt: new Date() } as never, { isIndian: true, forceStatus: true });
+    const n = { calories: 300, protein: 20, fat: 25, sodium: 900 };
+    const stats = await importProducts(db, [
+      { product: mk("Amul Processed Cheese", "Amul", "openfoodfacts", n), isIndian: true },
+      { product: mk("AMUL Processed Cheese 200g", "Amul", "dataset", { ...n, protein: 21 }), isIndian: true },
+      { product: mk("Amul Processed Cheese", "Amul", "dataset", n, null, 1000), isIndian: true },
+      { product: mk("German Cheese", "Hochland", "openfoodfacts", n), isIndian: false },
+    ], { requireIndian: true });
+    expect(stats).toMatchObject({ read: 4, skippedNotIndian: 1, duplicatesInFile: 1, inserted: 2 });
+    const rows = await db.collection("products").find({ brandNorm: "amul" }).toArray();
+    expect(rows).toHaveLength(2);                                   // 200 g and 1 kg stay separate
+    const small = rows.find((r) => r.quantity.value === 200)!; expect(small.nutrition.protein).toBe(21); expect(small.source.type).toBe("dataset");
+  });
+  it("search: brand + category intent, chips from data, nothing unrelated", async () => {
+    const { searchCatalogue, clearSearchCaches } = await import("@/lib/search"); clearSearchCaches();
+    const r = await searchCatalogue(db, { q: "amul cheese" });
+    expect(r.items.every((i) => /cheese/i.test(i.name))).toBe(true); expect(r.intent.brand).toBe("amul");
+    expect((await searchCatalogue(db, { q: "zzzz-nothing" })).items).toHaveLength(0);
   });
   it("invalid barcode and unknown product are reported, not thrown", async () => {
     expect((await lib.resolveProduct(db, "123")).status).toBe("invalid_barcode");

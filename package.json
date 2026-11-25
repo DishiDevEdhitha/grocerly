@@ -11,7 +11,12 @@
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
     "seed:kb": "tsx scripts/seed-knowledge.ts",
-    "db:indexes": "tsx scripts/ensure-indexes.ts"
+    "db:indexes": "tsx scripts/ensure-indexes.ts",
+    "import:mendeley": "tsx scripts/import-mendeley.ts",
+    "import:off": "tsx scripts/import-off-india.ts",
+    "migrate:v2": "tsx scripts/migrate-v2.ts",
+    "catalogue:stats": "tsx scripts/catalogue-stats.ts",
+    "db:validator": "tsx scripts/update-validator.ts"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
@@ -38,5 +43,7 @@
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
-  "engines": { "node": ">=18.18" }
+  "engines": {
+    "node": ">=18.18"
+  }
 }
