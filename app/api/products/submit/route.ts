@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getDb, col } from "@/lib/mongodb";
-import { saveProductWithAnalysis } from "@/lib/products";
+import { getDb } from "@/lib/db";
+import { saveProductWithAnalysis, recordScan } from "@/lib/products";
 import { enrichProduct } from "@/lib/catalogue";
 import { classify } from "@/lib/taxonomy";
 import { checkRate, clientKey } from "@/lib/rate-limit";
@@ -62,12 +62,11 @@ export async function POST(req: NextRequest) {
     if (!rate.allowed) return fail(429, "rate_limited", "Too many submissions. Please try again later.");
     const { product: saved, analysis, created } = await saveProductWithAnalysis(db, product);
     const submissionId = typeof b.submissionId === "string" && b.submissionId ? b.submissionId : randomUUID();
-    await col.submissions(db).updateOne({ submissionId }, { $set: { processingStatus: "accepted", productId: saved._id, acceptedAt: now } }, { upsert: true });
+    await db.collection("submissions").doc(submissionId).set({ submissionId, processingStatus: "accepted", productId: saved._id, acceptedAt: now }, { merge: true });
     const userId = getUserId(req);
-    if (userId) await db.collection("scan_history").insertOne({ userId, productId: saved._id, method: "ocr", scannedAt: now });
+    if (userId) await recordScan(db, userId, saved._id, "ocr");
     return ok(serialize({ product: { ...saved, id: String(saved._id) }, analysis, created }), created ? 201 : 200);
   } catch (e) {
-    if ((e as { code?: number }).code === 121) return fail(422, "validation_failed", "The database rejected the product because it did not match the schema.");
     return handleError(e);
   }
 }

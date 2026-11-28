@@ -11,7 +11,7 @@ config({ path: ".env.local" });
 config();
 import fs from "fs";
 import path from "path";
-import { getDb, validatorStatus } from "../lib/mongodb";
+import { getDb } from "../lib/db";
 import { csvToObjects } from "../lib/csv";
 import { describeMap, mapHeaders, rowToProduct } from "../lib/dataset-mapper";
 import { formatStats, importProducts, type ImportItem } from "../lib/importer";
@@ -36,7 +36,6 @@ async function main() {
   });
   if (skipped.nutrition_basis_unknown) console.log(`WARNING: ${skipped.nutrition_basis_unknown} rows had nutrient columns with no per-100 g / per-serving label. Re-run with --basis per100 (or perServing) after checking the dataset page.\n`);
   const db = await getDb();
-  { const v = await validatorStatus(db); if (!v.ok) { console.error(`\nSTOP: ${v.reason}\n`); process.exit(1); } }
   await seedKnowledge(db, false);
   const stats = await importProducts(db, items, { dryRun: dry, onProgress: (d, t) => { if (d % 100 === 0) console.log(`  ... ${d}/${t}`); } });
   stats.read = rows.length; stats.invalid += rows.length - items.length;

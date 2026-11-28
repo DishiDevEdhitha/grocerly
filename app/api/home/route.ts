@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
 import { homeData } from "@/lib/search";
 import { ok, handleError } from "@/lib/api";
 export const runtime = "nodejs";

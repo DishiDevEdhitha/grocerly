@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
 import { resolveProduct, recordScan } from "@/lib/products";
+import { isSaved } from "@/lib/user-data";
 import { ok, fail, handleError, serialize } from "@/lib/api";
 import { getUserId } from "@/lib/user";
 import type { ScanMethod } from "@/lib/types";
@@ -22,8 +23,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const method = req.nextUrl.searchParams.get("method") as ScanMethod | null;
     const userId = getUserId(req);
     if (userId && method && METHODS.includes(method)) await recordScan(db, userId, r.product._id, method);
-    let saved = false;
-    if (userId) saved = Boolean(await db.collection("saved_products").findOne({ userId, productId: r.product._id }));
-    return ok(serialize({ product: { ...r.product, id: String(r.product._id) }, analysis: r.analysis, origin: r.origin, saved }));
+    const saved = userId ? await isSaved(db, userId, r.product._id) : false;
+    return ok(serialize({ product: { ...r.product, id: r.product._id }, analysis: r.analysis, origin: r.origin, saved }));
   } catch (e) { return handleError(e); }
 }

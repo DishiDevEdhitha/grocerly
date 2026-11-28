@@ -1,4 +1,4 @@
-import type { Db } from "mongodb";
+import type { DB } from "./db";
 import { crossCheck } from "./nutrition";
 import { enrichProduct, mergeProducts } from "./catalogue";
 import { findDuplicate, upsertProduct, getOrComputeAnalysis } from "./products";
@@ -39,7 +39,7 @@ export interface ImportOptions { dryRun?: boolean; skipAnalysis?: boolean; requi
  * The import pipeline: validate -> de-duplicate inside the batch -> de-duplicate against MongoDB -> merge by source priority
  * -> insert/update -> compute analysis -> statistics. Nothing is dumped blindly.
  */
-export async function importProducts(db: Db, items: ImportItem[], opts: ImportOptions = {}): Promise<ImportStats> {
+export async function importProducts(db: DB, items: ImportItem[], opts: ImportOptions = {}): Promise<ImportStats> {
   const stats = emptyStats();
   const unique = new Map<string, Product>();
   for (const it of items) {

@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Search, SlidersHorizontal, X, Loader2 } from "lucide-react";
-import ProductTile from "@/components/ProductTile";
+import ProductRow from "@/components/ProductRow";
 import CategoryChips from "@/components/CategoryChips";
 import { ErrorBox, Empty } from "@/components/States";
 import { api } from "@/lib/client";
@@ -44,26 +44,26 @@ function SearchInner() {
   const activeFilters = (brand ? 1 : 0) + (veg ? 1 : 0);
   return (
     <>
-      <header className="pb-3 pt-2"><h1 className="text-[28px] font-extrabold leading-tight">{cat ?? (q ? q : "Search")}</h1></header>
+      <header className="pb-3 pt-1"><h1 className="text-[22px] font-extrabold leading-tight">{cat ?? "Search"}</h1></header>
       <form onSubmit={(e) => e.preventDefault()} className="relative" role="search">
-        <Search className="pointer-events-none absolute left-4 top-3.5 text-slate2" size={20} />
-        <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search Maggi, cheese, Amul…" className="input pl-11" aria-label="Search products" autoFocus={!cat} />
+        <Search className="pointer-events-none absolute left-3.5 top-3.5 text-slate2" size={16} />
+        <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search Maggi, cheese, Amul…" className="input pl-10" aria-label="Search products" autoFocus={!cat} />
       </form>
 
       {res && <div className="mt-3"><CategoryChips chips={res.chips} total={res.total} active={type} onSelect={(t) => setParam({ type: t })} /></div>}
       {res && (
         <div className="mt-3 flex items-center gap-2">
-          <button onClick={() => setSheet(true)} className="btn-outline !min-h-[42px] !px-4 text-sm"><SlidersHorizontal size={16} />Filters{activeFilters ? ` (${activeFilters})` : ""}</button>
+          <button onClick={() => setSheet(true)} className="btn-outline !min-h-[40px] !px-3.5 text-[13px]"><SlidersHorizontal size={15} />Filters{activeFilters ? ` (${activeFilters})` : ""}</button>
           <label className="sr-only" htmlFor="sort">Sort</label>
-          <select id="sort" value={sort} onChange={(e) => setParam({ sort: e.target.value === "relevance" ? undefined : e.target.value })} className="input !min-h-[42px] flex-1 !py-0 text-sm">{SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
+          <select id="sort" value={sort} onChange={(e) => setParam({ sort: e.target.value === "relevance" ? undefined : e.target.value })} className="input !min-h-[40px] flex-1 !py-0 text-[13px]">{SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
         </div>
       )}
-      {res && (res.intent.brand || res.intent.categories.length > 0) && <p className="mt-2 text-xs text-slate2">Showing {res.total} product{res.total === 1 ? "" : "s"}{res.intent.brand ? ` from ${res.intent.brand}` : ""}{res.intent.categories.length ? ` in ${res.intent.categories.slice(0, 2).join(", ")}` : ""}.</p>}
+      {res && (res.intent.brand || res.intent.categories.length > 0) && <p className="mt-2 text-[12px] text-slate2">Showing {res.total} product{res.total === 1 ? "" : "s"}{res.intent.brand ? ` from ${res.intent.brand}` : ""}{res.intent.categories.length ? ` in ${res.intent.categories.slice(0, 2).join(", ")}` : ""}.</p>}
 
       <div className="mt-4">
         {error && <ErrorBox message={error} action={{ label: "Try again", onClick: () => load(1) }} />}
-        {loading && items.length === 0 && <div className="grid grid-cols-2 gap-3" aria-busy="true">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-64 animate-pulse !bg-white/70" />)}</div>}
-        {items.length > 0 && <ul className="grid grid-cols-2 gap-3">{items.map((i) => <li key={i.id}><ProductTile item={i} via="search" /></li>)}</ul>}
+        {loading && items.length === 0 && <div className="space-y-2" aria-busy="true">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="card h-[76px] animate-pulse !bg-white/70" />)}</div>}
+        {items.length > 0 && <ul className="space-y-2">{items.map((i) => <li key={i.id}><ProductRow item={i} via="search" /></li>)}</ul>}
         {res?.hasMore && <button onClick={() => load(page + 1)} disabled={loading} className="btn-outline mt-4 w-full">{loading ? <Loader2 className="animate-spin" size={18} /> : null}Show more</button>}
         {res && res.items.length === 0 && items.length === 0 && !loading && (
           <Empty title="No matching products" body="Grocerly has nothing for that yet. You can look wider on Open Food Facts, or add the product from its label." />

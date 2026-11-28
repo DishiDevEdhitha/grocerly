@@ -57,6 +57,16 @@ export function computeStatus(p: Product, opts: { isIndian?: boolean } = {}): Ca
   return "active";
 }
 
+/** Keep the "active*" mirror fields in step with catalogStatus (see types.ts). */
+export function applyActiveFields(p: Product): Product {
+  const on = p.catalogStatus === "active";
+  p.activeBrand = on && p.brandNorm ? p.brandNorm : null;
+  p.activeCategories = on ? p.categoryPath ?? [] : [];
+  p.activeTokens = on ? p.searchTokens ?? [] : [];
+  p.activeDepartment = on ? p.categoryPath?.[0] ?? null : null;
+  return p;
+}
+
 /** Fill every catalogue-v2 field from what the product already has. Safe to call repeatedly. */
 export function enrichProduct(p: Product, opts: { isIndian?: boolean; forceStatus?: boolean } = {}): Product {
   const c = classify({ name: p.name, brand: p.brand, tags: p.categoryTags });
@@ -78,7 +88,7 @@ export function enrichProduct(p: Product, opts: { isIndian?: boolean; forceStatu
   out.qualityScore = computeQuality(out);
   out.confidence = computeConfidence(out);
   if (opts.forceStatus || !out.catalogStatus) out.catalogStatus = computeStatus(out, opts);
-  return out;
+  return applyActiveFields(out);
 }
 
 // ---------------------------------------------------------------------------------
@@ -137,5 +147,6 @@ export function mergeProducts(existing: Product, incoming: Product): MergeResult
   const enriched = enrichProduct({ ...out, catalogStatus: undefined }, { isIndian: existing.catalogStatus !== "hidden" || incoming.catalogStatus !== "hidden" });
   // A product that was already "active" never silently drops out of the catalogue.
   if (existing.catalogStatus === "active" && enriched.catalogStatus !== "active") enriched.catalogStatus = existing.catalogStatus;
+  applyActiveFields(enriched);
   return { merged: enriched, changed, corroborated };
 }

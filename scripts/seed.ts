@@ -1,12 +1,12 @@
 /**
  * Usage:  npm run seed -- maggi
- * Quick, small import for one search term (Indian products only). For large imports use
+ * Quick, small import for one search word (Indian products only). For large imports use
  * `npm run import:off` and `npm run import:mendeley`.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 config();
-import { getDb, col } from "../lib/mongodb";
+import { getDb } from "../lib/db";
 import { searchOff } from "../lib/off";
 import { upsertProduct, getOrComputeAnalysis } from "../lib/products";
 import { seedKnowledge } from "./seed-knowledge";
@@ -24,9 +24,9 @@ async function main() {
     const r = await upsertProduct(db, p, { isIndian });
     await getOrComputeAnalysis(db, r.product, true);
     r.created ? created++ : merged++;
-    console.log(`${r.created ? "+ inserted" : "~ merged  "}  ${p.barcode}  ${p.brand ?? ""} ${p.name}  [${p.categoryPath?.join(" > ")}]  status=${r.product.catalogStatus}`);
+    console.log(`${r.created ? "+ added " : "~ merged"}  ${p.barcode}  ${p.brand ?? ""} ${p.name}  [${p.categoryPath?.join(" > ")}]  status=${r.product.catalogStatus}`);
   }
-  console.log(`\nDone. ${created} inserted, ${merged} merged, ${skipped} skipped (not Indian). Products in DB: ${await col.products(db).countDocuments()}`);
+  console.log(`\nDone. ${created} added, ${merged} merged, ${skipped} skipped (not Indian).`);
   process.exit(0);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

@@ -18,10 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* Loaded at runtime (not build time) so builds work offline; system fonts are the fallback. */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
       </head>
       <body>
-        <main className="mx-auto w-full max-w-md px-4 pt-4">{children}</main>
+        <main className="mx-auto w-full max-w-md px-4 pt-3">{children}</main>
         <BottomNav />
         <ServiceWorker />
       </body>

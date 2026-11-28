@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
 import { resolveProduct } from "@/lib/products";
 import { bestPerMetric } from "@/lib/compare";
 import { ok, fail, handleError, serialize } from "@/lib/api";

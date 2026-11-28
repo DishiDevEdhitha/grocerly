@@ -1,4 +1,3 @@
-import type { ObjectId } from "mongodb";
 
 /** Where a piece of data came from. Used for provenance everywhere. */
 export type Provenance = "openfoodfacts" | "ocr" | "manual" | "ai" | "dataset" | "gemini";
@@ -27,7 +26,7 @@ export type ScoreProfileId =
   | "default" | "chips_snacks" | "protein_bar" | "cereal" | "beverage" | "biscuits" | "noodles";
 
 export interface Product {
-  _id?: ObjectId;
+  _id?: string;
   /** null for products created purely from user photos without a barcode. */
   barcode: string | null;
   name: string;
@@ -68,12 +67,19 @@ export interface Product {
   sources?: SourceEntry[];
   confidence?: { nutrition: ConfidenceLevel; ingredients: ConfidenceLevel; allergens: ConfidenceLevel; overall: ConfidenceLevel };
   purchaseLinks?: { blinkit?: string; zepto?: string; bigbasket?: string };
+  scanCount?: number;              // how many times people opened it (drives "Popular products")
+  // Firestore pattern: these mirror the normal fields ONLY while the product is active, so a query like
+  // where("activeCategories", "array-contains", "Cheese") returns active products without any extra filter.
+  activeBrand?: string | null;
+  activeCategories?: string[];
+  activeTokens?: string[];
+  activeDepartment?: string | null;
 }
 
 export type RiskLevel = "none" | "low" | "moderate" | "high";
 
 export interface IngredientKnowledge {
-  _id?: ObjectId;
+  _id?: string;
   name: string;
   normalizedName: string;
   category: string;
@@ -110,10 +116,10 @@ export interface AllergenReport {
 
 export type RegStatus = "allowed" | "restricted" | "banned" | "unknown";
 export interface RegulationRecord {
-  _id?: ObjectId;
+  _id?: string;
   ingredientKey: string; // e.g. "e924"
-  ingredientId?: ObjectId;
-  productId?: ObjectId;
+  ingredientId?: string;
+  productId?: string;
   country: string; // ISO 3166-1 alpha-2
   status: RegStatus;
   reason: string;
@@ -147,8 +153,8 @@ export interface ScoreResult {
 }
 
 export interface ProductAnalysis extends ScoreResult {
-  _id?: ObjectId;
-  productId: ObjectId;
+  _id?: string;
+  productId: string;
   generatedAt: Date;
   ingredientInsights: IngredientInsight[];
   allergenReport: AllergenReport;

@@ -1,13 +1,13 @@
 # Grocerly
 
-Android-first (PWA) food intelligence app for Indian shoppers. Scan a barcode, search, or photograph a label and get a transparent 0-100 score, reasons, allergens, country regulatory status, and better alternatives. Built with **Next.js + TypeScript + MongoDB Atlas** for a NoSQL course project.
+Android-first (PWA) food intelligence app for Indian shoppers. Scan a barcode, search, or photograph a label and get a transparent 0-100 score, reasons, allergens, country regulatory status, and better alternatives. Built with **Next.js + TypeScript + Firestore** for a NoSQL course project.
 
 ## What works
 
 | Feature | Where |
 |---|---|
 | Barcode scan (EAN-13/8, UPC-A/E), duplicate-scan guard, manual entry fallback | `components/Scanner.tsx`, `lib/barcode.ts` |
-| MongoDB-first lookup, then Open Food Facts, normalise, validate, score, **upsert** | `lib/products.ts`, `lib/off.ts`, `lib/normalize.ts` |
+| Firestore-first lookup, then Open Food Facts, normalise, validate, score, **upsert** | `lib/products.ts`, `lib/off.ts`, `lib/normalize.ts` |
 | Search (text index + partial match + OFF fallback) | `app/api/search` |
 | Label OCR (Tesseract.js in the browser) with per-field confidence and verification | `lib/ocr-client.ts`, `lib/nutrition.ts`, `app/ocr` |
 | Deterministic, versioned, category-aware score | `lib/score.ts`, `lib/scoring-config.ts` |
@@ -18,7 +18,7 @@ Android-first (PWA) food intelligence app for Indian shoppers. Scan a barcode, s
 
 ## Quick start (local)
 
-Requirements: Node.js 18.18+ and a free MongoDB Atlas cluster (see `docs/DATABASE_GUIDE.md`, section 3).
+Requirements: Node.js 18.18+ and a free Firestore cluster (see `docs/DATABASE_GUIDE.md`, section 3).
 
 ```bash
 npm install
@@ -59,8 +59,19 @@ Camera scanning needs HTTPS. On localhost it works in desktop Chrome; on your ph
 Data: [Open Food Facts](https://world.openfoodfacts.org) (ODbL). Keep attribution if you redistribute.
 
 
-## Catalogue upgrade (v2)
+## Database: Firestore
 
-Grocerly now treats MongoDB as its own Indian product catalogue (Open Food Facts, a CC BY dataset and Gemini label reading only fill and enrich it): category hierarchy, product identity and duplicate merging, source-priority merging with confidence levels, intelligent search with category chips, LOW/MODERATE/HIGH nutrient levels with references, relevant comparison, Gemini label reading with camera/gallery/multi-photo/product-link input, rate limiting and import pipelines.
+Grocerly stores its catalogue, analyses, history and saved lists in **Google Cloud Firestore** (a NoSQL document database). The app talks to a small interface in `lib/db.ts`; tests run on an in-memory copy (`lib/memory-db.ts`).
 
-**Read `docs/UPGRADE_GUIDE.md` (Word version: `docs/GROCERLY_UPGRADE_GUIDE.docx`).** New commands: `npm run db:validator`, `npm run migrate:v2`, `npm run import:mendeley`, `npm run import:off`, `npm run catalogue:stats`.
+**Start here: `docs/FIRESTORE_GUIDE.md`** (Word version: `docs/GROCERLY_FIRESTORE_GUIDE.docx`). Quick start:
+
+```
+npm install
+copy .env.example .env.local      (then add FIREBASE_SERVICE_ACCOUNT_BASE64)
+npm run db:check
+npm run seed:kb
+npm run import:off -- --pages 5
+npm run dev
+```
+
+Guides in `docs/old-mongodb-version/` describe the earlier MongoDB version and are kept for reference only.

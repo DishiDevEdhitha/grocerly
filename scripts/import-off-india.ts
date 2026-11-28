@@ -13,7 +13,7 @@ import fs from "fs";
 import zlib from "zlib";
 import readline from "readline";
 import path from "path";
-import { getDb, validatorStatus } from "../lib/mongodb";
+import { getDb } from "../lib/db";
 import { fetchOffIndiaPage, ExternalApiError } from "../lib/off";
 import { normalizeOffProduct, type OffProduct } from "../lib/normalize";
 import { emptyStats, formatStats, importProducts, mergeStats, type ImportItem, type ImportStats } from "../lib/importer";
@@ -32,7 +32,6 @@ async function main() {
   const dry = process.argv.includes("--dry-run");
   const file = arg("file"); const limit = Number(arg("limit") ?? 0) || Infinity; const pages = Number(arg("pages") ?? 5);
   const db = await getDb();
-  { const v = await validatorStatus(db); if (!v.ok) { console.error(`\nSTOP: ${v.reason}\n`); process.exit(1); } } await seedKnowledge(db, false);
   let total: ImportStats = emptyStats();
   const flush = async (raw: OffProduct[]) => { total = mergeStats(total, await importProducts(db, toItems(raw), { dryRun: dry, requireIndian: true })); };
 

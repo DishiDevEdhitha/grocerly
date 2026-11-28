@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getDb } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
 import { recordScan } from "@/lib/products";
 import { searchCatalogue } from "@/lib/search";
 import { extractCartItems } from "@/lib/cart";

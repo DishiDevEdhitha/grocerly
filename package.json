@@ -11,18 +11,16 @@
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
     "seed:kb": "tsx scripts/seed-knowledge.ts",
-    "db:indexes": "tsx scripts/ensure-indexes.ts",
     "import:mendeley": "tsx scripts/import-mendeley.ts",
     "import:off": "tsx scripts/import-off-india.ts",
-    "migrate:v2": "tsx scripts/migrate-v2.ts",
     "catalogue:stats": "tsx scripts/catalogue-stats.ts",
-    "db:validator": "tsx scripts/update-validator.ts"
+    "db:check": "tsx scripts/db-check.ts"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
+    "firebase-admin": "^14.5.1",
     "lucide-react": "^0.469.0",
-    "mongodb": "^6.12.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

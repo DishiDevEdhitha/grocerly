@@ -1,23 +1,23 @@
-/** Usage: npm run seed:kb  - upserts the ingredient knowledge base and the seed regulations. */
+/** Usage: npm run seed:kb  - saves the ingredient knowledge base and the seed regulations into Firestore. */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 config();
-import type { Db } from "mongodb";
-import { getDb, col } from "../lib/mongodb";
+import { C, getDb, type DB } from "../lib/db";
 import { BASE_KNOWLEDGE, normalizeName } from "../lib/ingredients";
 import { SEED_REGULATIONS } from "../lib/regulations";
 
-export async function seedKnowledge(db: Db, log = true) {
-  const ing = col.ingredients(db);
+const slug = (s: string) => s.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 100);
+
+export async function seedKnowledge(db: DB, log = true) {
   for (const k of BASE_KNOWLEDGE) {
-    await ing.updateOne({ normalizedName: normalizeName(k.name) }, { $set: { ...k, normalizedName: normalizeName(k.name) } }, { upsert: true });
+    const normalizedName = normalizeName(k.name);
+    await db.collection(C.ingredients).doc(slug(normalizedName)).set({ ...k, normalizedName }, { merge: true });
   }
-  const reg = col.regulations(db);
   for (const r of SEED_REGULATIONS) {
-    const ingredient = await ing.findOne({ eNumber: r.ingredientKey });
-    await reg.updateOne({ ingredientKey: r.ingredientKey, country: r.country }, { $set: { ...r, ingredientId: ingredient?._id } }, { upsert: true });
+    const ing = BASE_KNOWLEDGE.find((k) => k.eNumber === r.ingredientKey);
+    await db.collection(C.regulations).doc(`${r.ingredientKey}_${r.country}`).set({ ...r, ingredientId: ing ? slug(normalizeName(ing.name)) : null }, { merge: true });
   }
-  if (log) console.log(`Upserted ${BASE_KNOWLEDGE.length} ingredients and ${SEED_REGULATIONS.length} regulation records.`);
+  if (log) console.log(`Saved ${BASE_KNOWLEDGE.length} ingredients and ${SEED_REGULATIONS.length} regulation records.`);
 }
 
 if (process.argv[1]?.includes("seed-knowledge")) {

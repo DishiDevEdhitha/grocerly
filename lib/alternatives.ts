@@ -1,22 +1,16 @@
-import type { Db, ObjectId } from "mongodb";
-import { col } from "./mongodb";
-import { SCORE_VERSION } from "./scoring-config";
+import { C, type DB } from "./db";
 import { rankAlternatives, DEFAULT_PREFERENCES, type Candidate, type Preferences } from "./ranking";
-import type { Product, ProductAnalysis } from "./types";
+import { getScores, toProduct, type P } from "./products";
+import type { ProductAnalysis } from "./types";
 export * from "./ranking";
 
-/** Fetch same-category candidates from MongoDB using an aggregation with $lookup, then rank. */
-export async function findAlternatives(db: Db, product: Product & { _id: ObjectId }, analysis: ProductAnalysis, prefs: Preferences = DEFAULT_PREFERENCES, limit = 5) {
-  const tags = product.categoryTags.slice(-2);
-  const rows = await col.products(db).aggregate<Product & { _id: ObjectId; analysis: ProductAnalysis }>([
-    { $match: { _id: { $ne: product._id }, profile: product.profile, "nutritionBasis.unit": product.nutritionBasis.unit, $or: [{ category: product.category }, ...(tags.length ? [{ categoryTags: { $in: tags } }] : [])] } },
-    { $limit: 300 },
-    { $lookup: { from: "product_analysis", let: { pid: "$_id" }, pipeline: [{ $match: { $expr: { $and: [{ $eq: ["$productId", "$$pid"] }, { $eq: ["$scoreVersion", SCORE_VERSION] }] } } }, { $project: { score: 1 } }], as: "analysis" } },
-    { $unwind: "$analysis" },
-    { $match: { "analysis.score": { $ne: null } } },
-  ]).toArray();
-  const candidates: Candidate[] = rows.map((r) => { const { analysis: a, ...p } = r; return { id: String(r._id), product: p as Product, score: (a as unknown as { score: number }).score }; });
-  const cur: Candidate = { id: String(product._id), product, score: analysis.score };
+/** Fetch same-category candidates from Firestore, join their scores in code, then rank. */
+export async function findAlternatives(db: DB, product: P, analysis: ProductAnalysis, prefs: Preferences = DEFAULT_PREFERENCES, limit = 5) {
+  const key = product.categoryPath?.[1] ?? product.categoryPath?.[0] ?? product.category;
+  const docs = (await db.collection(C.products).where("activeCategories", "array-contains", key).limit(300).get()).docs.map(toProduct)
+    .filter((p) => p._id !== product._id && p.profile === product.profile && p.nutritionBasis.unit === product.nutritionBasis.unit);
+  const scores = await getScores(db, docs.map((d) => d._id));
+  const candidates: Candidate[] = docs.filter((d) => scores.get(d._id) != null).map((d) => ({ id: d._id, product: d, score: scores.get(d._id) ?? null }));
+  const cur: Candidate = { id: product._id, product, score: analysis.score };
   return { alternatives: rankAlternatives(cur, candidates, prefs, limit), candidateCount: candidates.length };
 }
-

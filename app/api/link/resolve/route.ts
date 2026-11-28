@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
-import { ObjectId } from "mongodb";
-import { getDb, col } from "@/lib/mongodb";
+import { getDb, C, isDocId } from "@/lib/db";
 import { parseProductLink, PURCHASE_RETAILERS } from "@/lib/links";
 import { searchCatalogue } from "@/lib/search";
 import { checkRate, clientKey } from "@/lib/rate-limit";
@@ -23,10 +22,13 @@ export async function POST(req: NextRequest) {
     if (!rate.allowed) return fail(429, "rate_limited", "Too many link lookups. Please wait a few minutes.");
 
     if (body?.productId) {
-      if (!/^[a-f0-9]{24}$/i.test(String(body.productId))) return fail(400, "invalid_input", "Bad product id.");
+      if (!isDocId(body.productId)) return fail(400, "invalid_input", "Bad product id.");
       if (!info.retailer || !PURCHASE_RETAILERS.includes(info.retailer)) return fail(400, "unsupported_retailer", "Only Blinkit, Zepto and BigBasket links can be attached.");
-      const r = await col.products(db).updateOne({ _id: new ObjectId(String(body.productId)), [`purchaseLinks.${info.retailer}`]: { $exists: false } }, { $set: { [`purchaseLinks.${info.retailer}`]: info.url } });
-      return ok({ attached: r.modifiedCount > 0, retailer: info.retailer });
+      const ref = db.collection(C.products).doc(String(body.productId)); const snap = await ref.get();
+      if (!snap.exists) return fail(404, "not_found", "Product not found.");
+      if (snap.data()?.purchaseLinks?.[info.retailer]) return ok({ attached: false, retailer: info.retailer });
+      await ref.update({ [`purchaseLinks.${info.retailer}`]: info.url });
+      return ok({ attached: true, retailer: info.retailer });
     }
 
     let res = await searchCatalogue(db, { q: info.query! });

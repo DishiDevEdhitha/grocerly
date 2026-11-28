@@ -32,6 +32,7 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
   const [data, setData] = useState<Full | null>(null); const [error, setError] = useState<ApiError | null>(null);
   const [alts, setAlts] = useState<AltResp | null>(null); const [sim, setSim] = useState<SimResp | null>(null); const [saved, setSaved] = useState(false);
   const [basis, setBasis] = useState<"per100" | "perServing">("per100");
+  const [tab, setTab] = useState<"analysis" | "nutrition" | "ingredients" | "alerts">("analysis");
 
   useEffect(() => {
     let live = true;
@@ -65,11 +66,11 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         <div className="flex gap-3">
           {p.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.image} alt={`${p.brand ?? ""} ${p.name}`.trim()} className="h-28 w-28 shrink-0 rounded-2xl bg-white object-contain p-1 ring-1 ring-ink/5" />
-          ) : <div className="grid h-28 w-28 shrink-0 place-items-center rounded-2xl bg-mint"><Package className="text-leaf/50" size={36} aria-hidden /></div>}
+            <img src={p.image} alt={`${p.brand ?? ""} ${p.name}`.trim()} className="h-20 w-20 shrink-0 rounded-2xl bg-white object-contain p-1 ring-1 ring-ink/5" />
+          ) : <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-mint"><Package className="text-leaf/50" size={36} aria-hidden /></div>}
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-slate2">{p.categoryPath?.join(" › ") ?? p.category}</p>
-            <h1 className="text-[22px] font-extrabold leading-tight">{p.name}</h1>
+            <p className="text-[11px] font-semibold text-slate2">{p.categoryPath?.join(" › ") ?? p.category}</p>
+            <h1 className="text-[16.5px] font-extrabold leading-snug">{p.name}</h1>
             <p className="text-sm text-slate2">{[p.brand, p.quantity ? `${p.quantity.value >= 1000 ? p.quantity.value / 1000 : p.quantity.value} ${p.quantity.value >= 1000 ? (p.quantity.unit === "g" ? "kg" : "L") : p.quantity.unit}` : null, p.price ? `₹${p.price.value}` : null].filter(Boolean).join(" · ")}</p>
             <div className="mt-1.5 flex items-center gap-2"><VegMark veg={p.dietary?.vegetarian} />{p.barcode && <span className="text-xs text-slate2">Barcode {p.barcode}</span>}</div>
           </div>
@@ -77,9 +78,14 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         {p.catalogStatus && p.catalogStatus !== "active" && <p className="mt-3 flex gap-2 rounded-2xl bg-turmeric/15 p-3 text-xs"><Info size={16} className="shrink-0" />This product is not in the main Grocerly catalogue yet (incomplete or unverified data), so it will not appear in search results.</p>}
       </section>
 
-      {/* 2. GROCERLY ANALYSIS */}
+      
+      <div role="tablist" aria-label="Product sections" className="seg sticky top-0 z-10 grid-cols-4 !bg-[#E9EFE9]">
+        {([["analysis", "Analysis"], ["nutrition", "Nutrition"], ["ingredients", "Ingredients"], ["alerts", "Alerts"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      {tab === "analysis" && (<>
+{/* 2. GROCERLY ANALYSIS */}
       <section className="card">
-        <h2 className="text-lg font-bold">Grocerly analysis</h2>
+        <h2 className="section-title">Grocerly analysis</h2>
         <ScoreGauge score={a.score} band={a.band} />
         {a.score == null && <p className="mt-3 text-sm">{a.reasons[0]}</p>}
         {a.score != null && (
@@ -93,9 +99,35 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         )}
       </section>
 
-      {/* 3. NUTRITION */}
+      {/* 6. SIMILAR PRODUCTS */}
+      <section className="card">
+        <h2 className="section-title">Compare with similar products</h2>
+        {!sim ? <p className="mt-2 text-sm text-slate2">Finding comparable products…</p> : sim.items.length === 0 ? <p className="mt-2 text-sm text-slate2">No comparable products with enough nutrition data in the catalogue yet.</p> : (
+          <>
+            <p className="mt-1 text-xs text-slate2">Same type or category, different brands first.</p>
+            <ul className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2">
+              {sim.items.slice(0, 6).map((s) => (
+                <li key={s.id} className="w-44 shrink-0 snap-start"><ProductTile item={s} action={<button onClick={() => compareWith(s.id)} className="btn-ghost mt-2 !min-h-[40px] w-full text-sm"><GitCompare size={16} />Compare</button>} />
+                  {s.why[0] && <p className="mt-1 px-1 text-[11px] text-slate2">{s.why[0]}</p>}</li>))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="flex items-center justify-between"><h2 className="section-title">Better alternatives</h2>{alts && alts.alternatives.length > 0 && <Link href={`/alternatives/${p.id}`} className="text-sm font-semibold text-leaf">Tune priorities</Link>}</div>
+        {!alts ? <p className="mt-2 text-sm text-slate2">Looking for similar products…</p> : alts.alternatives.length === 0 ? <p className="mt-2 text-sm text-slate2">No better product found among {alts.candidateCount} similar items in Grocerly yet.</p> : (
+          <ul className="mt-3 space-y-3">{alts.alternatives.slice(0, 3).map((x) => (
+            <li key={x.id}><Link href={`/product/${x.id}`} className="block rounded-2xl bg-paper p-3"><div className="flex justify-between gap-2"><b>{x.product.name}</b><span className="font-display font-extrabold">{x.score ?? "–"}</span></div>
+              <p className="mt-1 text-xs text-slate2">Recommended because: {x.reasons.join(" · ") || "better overall balance for your priorities"}</p></Link></li>))}</ul>
+        )}
+      </section>
+
+            </>)}
+      {tab === "nutrition" && (<>
+{/* 3. NUTRITION */}
       <section className="card" aria-labelledby="nut-h">
-        <div className="flex items-start justify-between gap-2"><h2 id="nut-h" className="text-lg font-bold">Nutrition</h2><ConfidenceBadge level={p.confidence?.nutrition} compact /></div>
+        <div className="flex items-start justify-between gap-2"><h2 id="nut-h" className="section-title">Nutrition</h2><ConfidenceBadge level={p.confidence?.nutrition} compact /></div>
         {hasPS && (
           <div role="tablist" aria-label="Nutrition basis" className="mt-3 grid grid-cols-2 rounded-full bg-paper p-1 text-sm font-semibold">
             {(["per100", "perServing"] as const).map((b) => <button key={b} role="tab" aria-selected={basis === b} onClick={() => setBasis(b)} className={`min-h-[40px] rounded-full ${basis === b ? "bg-white shadow" : "text-slate2"}`}>{b === "per100" ? `Per ${per}` : `Per serving (${p.servingSize!.value} ${p.servingSize!.unit})`}</button>)}
@@ -115,9 +147,11 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         {NUTRIENT_KEYS.every((k) => p.nutrition[k] == null) && <p className="mt-2 text-sm text-slate2">No nutrition values are available for this product yet. <Link href={`/ocr${p.barcode ? `?barcode=${p.barcode}` : ""}`} className="font-semibold text-leaf">Add them from the label</Link>.</p>}
       </section>
 
-      {/* 4. INGREDIENTS */}
+            </>)}
+      {tab === "ingredients" && (<>
+{/* 4. INGREDIENTS */}
       <section className="card">
-        <div className="flex items-start justify-between gap-2"><h2 className="text-lg font-bold">Ingredients</h2><ConfidenceBadge level={p.confidence?.ingredients} compact /></div>
+        <div className="flex items-start justify-between gap-2"><h2 className="section-title">Ingredients</h2><ConfidenceBadge level={p.confidence?.ingredients} compact /></div>
         {a.ingredientInsights.length === 0 ? <p className="mt-2 text-sm text-slate2">No ingredient list available.</p> : (
           <>
             {p.ingredientsText && <p className="mt-2 text-sm leading-relaxed">{p.ingredientsText}</p>}
@@ -134,9 +168,11 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         )}
       </section>
 
-      {/* 5. ALLERGENS */}
+            </>)}
+      {tab === "alerts" && (<>
+{/* 5. ALLERGENS */}
       <section className="card">
-        <div className="flex items-start justify-between gap-2"><h2 className="text-lg font-bold">Allergens</h2><ConfidenceBadge level={p.confidence?.allergens} compact /></div>
+        <div className="flex items-start justify-between gap-2"><h2 className="section-title">Allergens</h2><ConfidenceBadge level={p.confidence?.allergens} compact /></div>
         {!a.allergenReport.known ? <p className="mt-2 text-sm text-slate2">Unknown. No ingredient list or allergen declaration is available for this product.</p>
           : a.allergenReport.findings.length === 0 ? <p className="mt-2 text-sm">No allergens found in the ingredient list or label declarations. Always check the pack.</p>
           : <ul className="mt-3 space-y-2">{a.allergenReport.findings.map((f) => (
@@ -145,33 +181,9 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
 
       <Regulations items={a.regulatory} />
 
-      {/* 6. SIMILAR PRODUCTS */}
-      <section className="card">
-        <h2 className="text-lg font-bold">Compare with similar products</h2>
-        {!sim ? <p className="mt-2 text-sm text-slate2">Finding comparable products…</p> : sim.items.length === 0 ? <p className="mt-2 text-sm text-slate2">No comparable products with enough nutrition data in the catalogue yet.</p> : (
-          <>
-            <p className="mt-1 text-xs text-slate2">Same type or category, different brands first.</p>
-            <ul className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2">
-              {sim.items.slice(0, 6).map((s) => (
-                <li key={s.id} className="w-44 shrink-0 snap-start"><ProductTile item={s} action={<button onClick={() => compareWith(s.id)} className="btn-ghost mt-2 !min-h-[40px] w-full text-sm"><GitCompare size={16} />Compare</button>} />
-                  {s.why[0] && <p className="mt-1 px-1 text-[11px] text-slate2">{s.why[0]}</p>}</li>))}
-            </ul>
-          </>
-        )}
-      </section>
-
-      <section className="card">
-        <div className="flex items-center justify-between"><h2 className="text-lg font-bold">Better alternatives</h2>{alts && alts.alternatives.length > 0 && <Link href={`/alternatives/${p.id}`} className="text-sm font-semibold text-leaf">Tune priorities</Link>}</div>
-        {!alts ? <p className="mt-2 text-sm text-slate2">Looking for similar products…</p> : alts.alternatives.length === 0 ? <p className="mt-2 text-sm text-slate2">No better product found among {alts.candidateCount} similar items in Grocerly yet.</p> : (
-          <ul className="mt-3 space-y-3">{alts.alternatives.slice(0, 3).map((x) => (
-            <li key={x.id}><Link href={`/product/${x.id}`} className="block rounded-2xl bg-paper p-3"><div className="flex justify-between gap-2"><b>{x.product.name}</b><span className="font-display font-extrabold">{x.score ?? "–"}</span></div>
-              <p className="mt-1 text-xs text-slate2">Recommended because: {x.reasons.join(" · ") || "better overall balance for your priorities"}</p></Link></li>))}</ul>
-        )}
-      </section>
-
       {/* 7. PURCHASE */}
       {buy.length > 0 && (
-        <section className="card"><h2 className="text-lg font-bold">Where to buy</h2><p className="text-xs text-slate2">Optional links to the retailers' own pages. Grocerly is not affiliated with them.</p>
+        <section className="card"><h2 className="section-title">Where to buy</h2><p className="text-xs text-slate2">Optional links to the retailers' own pages. Grocerly is not affiliated with them.</p>
           <div className="mt-3 flex flex-wrap gap-2">{buy.map(([r, url]) => <a key={r} href={url as string} target="_blank" rel="noopener noreferrer nofollow" className="btn-outline capitalize">{r}<ExternalLink size={15} /></a>)}</div></section>
       )}
 
@@ -185,9 +197,11 @@ export default function ProductView({ id, via }: { id: string; via?: string }) {
         <Link href={`/ocr${p.barcode ? `?barcode=${p.barcode}` : ""}`} className="mt-3 inline-flex items-center gap-1 font-semibold text-leaf"><Plus size={14} />Something wrong or missing? Add the label</Link>
       </section>
 
-      <div className="sticky bottom-[76px] z-10 grid grid-cols-2 gap-2 rounded-full bg-paper/90 py-2 backdrop-blur">
-        <button onClick={() => { addToTray(p.id); router.push("/compare"); }} className="btn-ghost"><GitCompare size={18} />Compare</button>
-        <button onClick={toggleSave} aria-pressed={saved} className={saved ? "btn-primary" : "btn-outline"}>{saved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}{saved ? "Saved" : "Save"}</button>
+      </>)}
+
+      <div className="sticky bottom-[64px] z-10 grid grid-cols-2 gap-2 rounded-2xl bg-white/90 p-2 shadow-[0_-4px_16px_-10px_rgba(0,0,0,.25)] backdrop-blur">
+        <button onClick={() => { addToTray(p.id); router.push("/compare"); }} className="btn-outline"><GitCompare size={16} />Compare</button>
+        <button onClick={toggleSave} aria-pressed={saved} className={saved ? "btn-primary" : "btn-outline"}>{saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}{saved ? "Saved" : "Save"}</button>
       </div>
     </div>
   );
@@ -202,7 +216,7 @@ function Regulations({ items }: { items: CountryStatus[] }) {
   const icon = (s: string) => s === "banned" ? <ShieldAlert className="text-chilli" size={20} /> : s === "restricted" ? <ShieldAlert className="text-turmeric" size={20} /> : s === "allowed" ? <ShieldCheck className="text-leaf" size={20} /> : <ShieldQuestion className="text-slate2" size={20} />;
   return (
     <section className="card">
-      <h2 className="text-lg font-bold">Country status</h2>
+      <h2 className="section-title">Country status</h2>
       <ul className="mt-3 space-y-3">{items.map((c) => (
         <li key={c.country}><div className="flex items-center gap-2">{icon(c.status)}<b>{c.countryName}</b><span className="ml-auto text-sm font-semibold capitalize">{c.status}</span></div>
           <p className="ml-7 text-sm text-slate2">{c.summary}</p>

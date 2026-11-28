@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getDb, col } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
 import { parseNutritionLines, type OcrLine } from "@/lib/nutrition";
 import { parseIngredientText } from "@/lib/ingredients";
 import { ok, fail, handleError } from "@/lib/api";
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       result = { kind, submissionId, confidence: avg, ingredientsText: text, items: parsed.map((p) => p.name), warnings: avg < 0.6 ? ["Text was hard to read. Please check the ingredient list for typos."] : [] };
     }
     const db = await getDb();
-    await col.submissions(db).updateOne({ submissionId }, { $set: { barcode: b.barcode ?? null, rawOCR: { [kind]: lines.map((l) => l.text).join("\n") }, [kind === "nutrition" ? "extractedNutrition" : "extractedIngredients"]: kind === "nutrition" ? extractedNutrition : extractedIngredients, confidence: avg, processingStatus: "parsed" }, $setOnInsert: { submissionId, createdAt: new Date(), images: [] } }, { upsert: true });
+    await db.collection("submissions").doc(submissionId).set({ submissionId, barcode: b.barcode ?? null, rawOCR: { [kind]: lines.map((l) => l.text).join("\n") }, [kind === "nutrition" ? "extractedNutrition" : "extractedIngredients"]: kind === "nutrition" ? extractedNutrition : extractedIngredients, confidence: avg, processingStatus: "parsed", createdAt: new Date() }, { merge: true });
     return ok(result);
   } catch (e) { return handleError(e); }
 }

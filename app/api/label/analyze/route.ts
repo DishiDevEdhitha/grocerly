@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
-import { getDb, col } from "@/lib/mongodb";
+import { getDb } from "@/lib/db";
+import { getProductById } from "@/lib/products";
 import { validateImagePayload } from "@/lib/image-server";
 import { extractLabelRaw, validateExtraction, GeminiError, geminiConfigured } from "@/lib/gemini-label";
 import { validateBarcode } from "@/lib/barcode";
@@ -29,14 +30,14 @@ export async function POST(req: NextRequest) {
 
     let barcode: string | null = null;
     if (body.barcode) { const v = validateBarcode(String(body.barcode)); if (v.valid) barcode = v.normalized; }
-    const existing = barcode ? await col.products(db).findOne({ barcode }, { projection: { _id: 1, name: 1 } }) : null;
+    const existing = barcode ? await getProductById(db, barcode) : null;
 
     const raw = await extractLabelRaw(check.images);
     const extraction = validateExtraction(raw);
     const submissionId = typeof body.submissionId === "string" && body.submissionId.length < 64 ? body.submissionId : randomUUID();
     // Keep the evidence (model JSON + validated result), never the photos.
-    await col.submissions(db).updateOne({ submissionId }, { $set: { barcode, rawAI: raw, extractedNutrition: extraction.fields, extractedIngredients: extraction.ingredients, confidence: null, processingStatus: "ai_parsed", imageCount: check.images.length }, $setOnInsert: { submissionId, createdAt: new Date(), images: [] } }, { upsert: true });
-    return ok({ submissionId, extraction, existingProductId: existing ? String(existing._id) : null, usedAi: true });
+    await db.collection("submissions").doc(submissionId).set({ submissionId, barcode, rawAI: raw, extractedNutrition: extraction.fields, extractedIngredients: extraction.ingredients, processingStatus: "ai_parsed", imageCount: check.images.length, createdAt: new Date() }, { merge: true });
+    return ok({ submissionId, extraction, existingProductId: existing ? existing._id : null, usedAi: true });
   } catch (e) {
     if (e instanceof GeminiError) {
       const status = e.code === "quota" ? 429 : e.code === "not_configured" || e.code === "auth" ? 503 : e.code === "timeout" ? 504 : e.code === "bad_request" ? 502 : 502;

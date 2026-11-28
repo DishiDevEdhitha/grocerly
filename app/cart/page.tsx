@@ -29,7 +29,7 @@ export default function CartPage() {
       {error && <div className="mt-3"><ErrorBox message={error} /></div>}
       {report && (
         <div className="mt-4 space-y-3">
-          <section className="card"><h2 className="text-lg font-bold">Your basket</h2>
+          <section className="card"><h2 className="section-title">Your basket</h2>
             <p className="mt-1 text-sm">{report.analyzed} product{report.analyzed === 1 ? "" : "s"} analysed{report.unmatched ? `, ${report.unmatched} not found` : ""}</p>
             <p className="mt-3 font-display text-5xl font-extrabold">{report.averageScore ?? "–"}<span className="ml-2 text-base font-medium text-slate2">average score</span></p>
             <ul className="mt-3 space-y-1 text-sm">{report.highSodium > 0 && <li>{report.highSodium} high in sodium</li>}{report.highSugar > 0 && <li>{report.highSugar} high in sugar</li>}{report.highSatFat > 0 && <li>{report.highSatFat} high in saturated fat</li>}</ul>

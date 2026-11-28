@@ -2,20 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --font-display: "Bricolage Grotesque", "Segoe UI", Roboto, system-ui, sans-serif; --font-body: "Figtree", Roboto, "Segoe UI", system-ui, sans-serif; }
+:root { --font-display: "Plus Jakarta Sans", "Segoe UI", Roboto, system-ui, sans-serif; --font-body: "Plus Jakarta Sans", Roboto, "Segoe UI", system-ui, sans-serif; }
 html { -webkit-tap-highlight-color: transparent; }
-body { @apply bg-paper font-body text-ink antialiased; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+body { @apply font-body text-[14px] text-ink antialiased; background: radial-gradient(900px 320px at 50% -80px, #DDEFE0 0%, rgba(221,239,224,0) 70%) no-repeat, #F7F9F6; padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
 h1, h2, h3 { @apply font-display tracking-tight; }
-:focus-visible { outline: 3px solid #E8A317; outline-offset: 2px; border-radius: 10px; }
+:focus-visible { outline: 2px solid #1E7B3F; outline-offset: 2px; border-radius: 12px; }
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
 
 @layer components {
-  .card { @apply rounded-tile bg-white p-4 shadow-[0_1px_0_rgba(18,35,29,.06),0_8px_24px_-16px_rgba(18,35,29,.25)]; }
-  .btn { @apply inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-5 font-semibold transition active:scale-[.98] disabled:opacity-50; }
-  .btn-primary { @apply btn bg-leaf text-white; }
+  .card { @apply rounded-[18px] border border-ink/[.06] bg-white p-4 shadow-[0_1px_2px_rgba(20,38,27,.04),0_8px_20px_-14px_rgba(20,38,27,.22)]; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[14px] px-4 text-[14px] font-semibold transition active:scale-[.98] disabled:opacity-50; }
+  .btn-primary { @apply btn bg-gradient-to-b from-[#2B8C4B] to-[#1E7B3F] text-white shadow-sm; }
   .btn-ghost { @apply btn bg-mint text-leaf-dark; }
-  .btn-outline { @apply btn border border-ink/15 bg-white text-ink; }
-  .input { @apply min-h-[48px] w-full rounded-2xl border border-ink/15 bg-white px-4 text-base outline-none focus:border-leaf; }
-  .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold; }
+  .btn-outline { @apply btn border border-ink/10 bg-white text-ink; }
+  .input { @apply min-h-[44px] w-full rounded-[14px] border border-ink/10 bg-white px-3.5 text-[14px] outline-none placeholder:text-slate2/70 focus:border-leaf; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold leading-4; }
+  .seg { @apply grid rounded-full bg-ink/[.05] p-1; }
+  .seg > button { @apply min-h-[34px] rounded-full text-[12.5px] font-semibold text-slate2 transition; }
+  .seg > button[aria-selected="true"] { @apply bg-white text-leaf-dark shadow-sm; }
+  .section-title { @apply text-[15px] font-bold; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @keyframes scanline { 0% { top: 8%; } 100% { top: 88%; } }

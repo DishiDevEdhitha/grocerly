@@ -1,8 +1,7 @@
-import type { Db, ObjectId } from "mongodb";
-import { col } from "./mongodb";
-import { SCORE_VERSION } from "./scoring-config";
+import { C, type DB } from "./db";
 import { coreCount } from "./catalogue";
 import { isSameProduct } from "./identity";
+import { getScores, toProduct, type P } from "./products";
 import type { Product } from "./types";
 
 export interface SimilarCandidate { id: string; product: Product; score: number | null }
@@ -43,15 +42,12 @@ export function rankSimilar(base: Product, cands: SimilarCandidate[], limit = 8)
   return picked;
 }
 
-export async function findSimilar(db: Db, base: Product & { _id: ObjectId }, limit = 8) {
+/** Candidates = active products whose category list contains the base product's category. Scores are joined in code (Firestore has no joins). */
+export async function findSimilar(db: DB, base: P, limit = 8) {
   const bp = base.categoryPath ?? [];
   if (bp.length < 2) return [];
-  const rows = await col.products(db).aggregate<Product & { _id: ObjectId; a: { score: number | null } }>([
-    { $match: { _id: { $ne: base._id }, catalogStatus: "active", categoryPath: bp[1] } },
-    { $limit: 250 },
-    { $lookup: { from: "product_analysis", let: { pid: "$_id" }, pipeline: [{ $match: { $expr: { $and: [{ $eq: ["$productId", "$$pid"] }, { $eq: ["$scoreVersion", SCORE_VERSION] }] } } }, { $project: { score: 1 } }], as: "a" } },
-    { $unwind: "$a" },
-  ]).toArray();
-  const cands: SimilarCandidate[] = rows.map((r) => { const { a, ...p } = r; return { id: String(r._id), product: p as unknown as Product, score: a.score }; });
+  const docs = (await db.collection(C.products).where("activeCategories", "array-contains", bp[1]).limit(250).get()).docs.map(toProduct).filter((p) => p._id !== base._id);
+  const scores = await getScores(db, docs.map((d) => d._id));
+  const cands: SimilarCandidate[] = docs.filter((d) => scores.get(d._id) != null).map((d) => ({ id: d._id, product: d, score: scores.get(d._id) ?? null }));
   return rankSimilar(base, cands, limit);
 }

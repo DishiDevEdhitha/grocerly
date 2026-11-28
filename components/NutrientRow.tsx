@@ -17,7 +17,7 @@ export default function NutrientRow({ nutrientKey, value, level, basis }: { nutr
   return (
     <div className="border-t border-ink/10 py-3 first:border-0">
       <div className="flex items-start justify-between gap-3">
-        <div><p className="font-semibold">{label}</p><p className="font-display text-xl font-extrabold leading-tight">{formatNutrient(nutrientKey, value)} <span className="text-xs font-medium text-slate2">/ {basis}</span></p></div>
+        <div><p className="text-[12px] font-semibold text-slate2">{label}</p><p className="text-[17px] font-extrabold leading-tight">{formatNutrient(nutrientKey, value)} <span className="text-[11px] font-medium text-slate2">/ {basis}</span></p></div>
         {level ? <LevelPill label={level.label} tone={level.tone} /> : <span className="text-xs text-slate2">No reference</span>}
       </div>
       {level && colors && (

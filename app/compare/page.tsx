@@ -35,7 +35,7 @@ export default function ComparePage() {
         </>
       )}
       {sim.length > 0 && ids.length < 4 && (
-        <section className="mt-6"><h2 className="text-lg font-bold">Suggested to compare</h2><p className="text-xs text-slate2">Same type or category as your first product, other brands first.</p>
+        <section className="mt-6"><h2 className="section-title">Suggested to compare</h2><p className="text-xs text-slate2">Same type or category as your first product, other brands first.</p>
           <ul className="-mx-4 mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-2">{sim.map((s) => <li key={s.id} className="w-44 shrink-0 snap-start"><ProductTile item={s} action={<button onClick={() => setIds(addToTray(s.id))} className="btn-ghost mt-2 !min-h-[40px] w-full text-sm"><Plus size={16} />Add</button>} /></li>)}</ul></section>
       )}
       {ids.length > 0 && ids.length < 4 && <Link href="/search" className="btn-outline mt-4 w-full">Search another product</Link>}
